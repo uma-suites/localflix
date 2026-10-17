@@ -41,7 +41,7 @@ struct DownloadProgress {
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("hello-updater")
+        .user_agent("localflix")
         .build()
         .map_err(|e| e.to_string())
 }
@@ -92,7 +92,7 @@ async fn check_update(
         .ok_or("Release ZIP not found")?;
 
     let checksum_url = find_asset(
-        "hello-updater.zip.sha256"
+        &format!("{ASSET}.sha256")
     )
     .ok_or("Checksum file not found")?;
 
@@ -104,7 +104,7 @@ async fn check_update(
 }
 
 fn update_dir() -> PathBuf {
-    std::env::temp_dir().join("hello-updater-download")
+    std::env::temp_dir().join("localflix-update")
 }
 
 #[tauri::command]
@@ -119,7 +119,7 @@ async fn download_update(
     );
 
     if !url.starts_with(&expected_prefix)
-        || !url.ends_with("/hello-updater.zip")
+        || !url.ends_with(&format!("/{ASSET}"))
         || checksum_url
             != format!("{url}.sha256")
     {
@@ -233,17 +233,17 @@ fn restart_and_update(app: AppHandle) -> Result<(), String> {
 param(
     [string]$Target,
     [string]$Zip,
-    [int]$ParentPid
+    [int]$AppProcessId
 )
 
 $ErrorActionPreference = "Stop"
-$work = Join-Path $env:TEMP ("hello-update-" + [guid]::NewGuid())
+$work = Join-Path $env:TEMP ("localflix-" + [guid]::NewGuid())
 
 try {
     New-Item -ItemType Directory -Path $work | Out-Null
     Expand-Archive -LiteralPath $Zip -DestinationPath $work
 
-    $source = Join-Path $work "hello-updater.exe"
+    $source = Join-Path $work "localflix.exe"
 
     if (!(Test-Path -LiteralPath $source)) {
         throw "Replacement executable missing"
@@ -251,7 +251,7 @@ try {
 
     # Wait for the old application to exit.
     $deadline = (Get-Date).AddSeconds(30)
-    while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
+    while (Get-Process -Id $AppProcessId -ErrorAction SilentlyContinue) {
         if ((Get-Date) -gt $deadline) {
             throw "Application did not exit"
         }
@@ -274,7 +274,7 @@ try {
 
     Start-Process -FilePath $Target
 } catch {
-    Add-Content -Path (Join-Path $env:TEMP "hello-updater-error.log") -Value $_
+    Add-Content -Path (Join-Path $env:TEMP "localflix-error.log") -Value $_
 } finally {
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -298,7 +298,7 @@ try {
         .arg(&current_exe)
         .arg("-Zip")
         .arg(&zip_path)
-        .arg("-ParentPid")
+        .arg("-AppProcessId")
         .arg(std::process::id().to_string())
         .spawn()
         .map_err(|e| e.to_string())?;

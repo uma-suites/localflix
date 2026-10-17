@@ -85,7 +85,7 @@ function App() {
   return (
     <main className="app">
       <h1>Hello World 2</h1>
-      <p>Version 0.2.0</p>
+      <p>Version 0.2.1</p>
 
       <button onClick={checkForUpdates}>Check for updates</button>
 
